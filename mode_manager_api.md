@@ -5,16 +5,20 @@ ROS Mode Manager 서비스와 통신하기 위한 JSON 메시지 템플릿입니
 
 ---
 
-## 1. GET - 현재 모드 조회
+## Service 정보
 
 ### Service
-- **Name**: `/mode/get`
+- **Name**: `/mode/req`
 - **Type**: `ModeRequest`
+
+---
+
+## 1. GET - 현재 모드 조회
 
 ### 요청
 ```json
 {
-  "request_data": ""
+  "command": "get"
 }
 ```
 
@@ -32,18 +36,17 @@ ROS Mode Manager 서비스와 통신하기 위한 JSON 메시지 템플릿입니
 
 ## 2. SET - 모드 변경
 
-### Service
-- **Name**: `/mode/set`
-- **Type**: `ModeRequest`
-
 ### 요청
 ```json
 {
-  "request_data": "{\"mode\": 1, \"speed\": 0.5}"
+  "command": "set",
+  "mode": 1,
+  "speed": 0.5
 }
 ```
 
 ### 파라미터
+- `command`: "set" (필수)
 - `mode`: 변경할 모드 값 (필수)
 - `speed`: 속도 설정 (선택, 기본값: 0.5)
 
@@ -61,14 +64,10 @@ ROS Mode Manager 서비스와 통신하기 위한 JSON 메시지 템플릿입니
 
 ## 3. LIST - 사용 가능한 모드 목록 조회
 
-### Service
-- **Name**: `/mode/list`
-- **Type**: `ModeRequest`
-
 ### 요청
 ```json
 {
-  "request_data": ""
+  "command": "list"
 }
 ```
 
@@ -92,13 +91,13 @@ ROS Mode Manager 서비스와 통신하기 위한 JSON 메시지 템플릿입니
 
 ## 4. 에러 응답
 
-### 잘못된 요청
+### 잘못된 명령어
 ```json
 {
   "success": false,
   "current_mode": 0,
   "mode_name": "IDLE",
-  "message": "Invalid request"
+  "message": "Unknown command: test"
 }
 ```
 
@@ -132,17 +131,17 @@ ROS Mode Manager 서비스와 통신하기 위한 JSON 메시지 템플릿입니
 
 ### GET 모드 조회
 ```bash
-rosservice call /mode/get "{request_data: ''}"
+rosservice call /mode/req "{request_data: '{\"command\": \"get\"}'}"
 ```
 
 ### SET 모드 변경
 ```bash
-rosservice call /mode/set "{request_data: '{\"mode\": 1, \"speed\": 0.5}'}"
+rosservice call /mode/req "{request_data: '{\"command\": \"set\", \"mode\": 1, \"speed\": 0.5}'}"
 ```
 
 ### LIST 모드 목록
 ```bash
-rosservice call /mode/list "{request_data: ''}"
+rosservice call /mode/req "{request_data: '{\"command\": \"list\"}'}"
 ```
 
 ---
@@ -152,11 +151,16 @@ rosservice call /mode/list "{request_data: ''}"
 ### GET 요청
 ```python
 import rospy
+import json
 from mode_manager.srv import ModeRequest
 
-rospy.wait_for_service('/mode/get')
-get_mode = rospy.ServiceProxy('/mode/get', ModeRequest)
-response = get_mode("")
+rospy.wait_for_service('/mode/req')
+mode_req = rospy.ServiceProxy('/mode/req', ModeRequest)
+
+request_data = json.dumps({"command": "get"})
+response = mode_req(request_data)
+result = json.loads(response.response_data)
+print(result)
 ```
 
 ### SET 요청
@@ -165,38 +169,50 @@ import rospy
 import json
 from mode_manager.srv import ModeRequest
 
-rospy.wait_for_service('/mode/set')
-set_mode = rospy.ServiceProxy('/mode/set', ModeRequest)
+rospy.wait_for_service('/mode/req')
+mode_req = rospy.ServiceProxy('/mode/req', ModeRequest)
 
-request_data = json.dumps({"mode": 1, "speed": 0.5})
-response = set_mode(request_data)
+request_data = json.dumps({
+    "command": "set",
+    "mode": 1,
+    "speed": 0.5
+})
+response = mode_req(request_data)
+result = json.loads(response.response_data)
+print(result)
 ```
 
 ### LIST 요청
 ```python
 import rospy
+import json
 from mode_manager.srv import ModeRequest
 
-rospy.wait_for_service('/mode/list')
-list_modes = rospy.ServiceProxy('/mode/list', ModeRequest)
-response = list_modes("")
+rospy.wait_for_service('/mode/req')
+mode_req = rospy.ServiceProxy('/mode/req', ModeRequest)
+
+request_data = json.dumps({"command": "list"})
+response = mode_req(request_data)
+result = json.loads(response.response_data)
+print(result)
 ```
 
 ---
 
-## 서비스 목록
+## 명령어 목록
 
-| 서비스 이름 | 기능 | 입력 필요 |
-|------------|------|----------|
-| `/mode/get` | 현재 모드 조회 | ❌ (빈 문자열) |
-| `/mode/set` | 모드 변경 | ✅ (mode, speed) |
-| `/mode/list` | 모드 목록 조회 | ❌ (빈 문자열) |
+| 명령어 | 기능 | 필수 파라미터 |
+|--------|------|--------------|
+| `get` | 현재 모드 조회 | 없음 |
+| `set` | 모드 변경 | `mode` |
+| `list` | 모드 목록 조회 | 없음 |
 
 ---
 
 ## 주의사항
 
-1. 모든 서비스는 `ModeRequest` 타입을 사용합니다
-2. 요청 데이터는 `request_data` 필드에 JSON 문자열로 전달
-3. 응답 데이터는 `response_data` 필드에 JSON 문자열로 반환
-4. 유효하지 않은 모드 값 설정 시 에러 응답 반환
+1. 모든 요청은 `/mode/req` 서비스를 통해 전송됩니다
+2. `request_data` 필드에 JSON 문자열 형태로 전달
+3. `command` 필드는 소문자로 전송 (대소문자 구분 안함)
+4. 응답은 `response_data` 필드에 JSON 문자열로 반환
+5. 유효하지 않은 모드 값 설정 시 에러 응답 반환

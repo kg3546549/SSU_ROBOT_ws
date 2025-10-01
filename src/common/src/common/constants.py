@@ -14,7 +14,7 @@ class TOPICS:
     EMERGENCY_STOP = '/emergency_stop'
 
 class SERVICES:
-    MODE = '/mode/req'
+    MODE_SRV = '/mode/req'
 
 # Frame IDs
 class FRAME_IDS:
