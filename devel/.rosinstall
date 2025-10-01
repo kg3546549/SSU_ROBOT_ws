@@ -1,2 +1,2 @@
 - setup-file:
-    local-name: /root/ssu_robot_ws/devel/setup.sh
+    local-name: /home/yahboom/SSU_ROBOT_ws/devel/setup.sh

@@ -4,24 +4,55 @@
 import rospy
 from geometry_msgs.msg import Twist
 from std_msgs.msg import String
+import json
 
 #from Types import Modes
 
+class RobotMode(Enum):
+    IDLE = 0
+    #MANUAL = 1
+    AUTO_PATROL = 1
+    AUTO_NAVIGATION = 2
+    KEYBOARD = 3
+    WEB_JOY = 4
+    JOY = 5
+    EMERGENCY = 99
+
 
 class CentralNode :
+    def webCmdVelCallback(self, msg:Twist) :
+        if self.curMode != "WEB_MANUAL" :
+            return
+        
+        self.cmd_vel_publisher.publish(msg)
+        
+    def webCmdModeCallback(self, msg:String) :
+        jsonData = json.loads(msg)
+        jsonData.
+
+
     def keyboardCallback(self, msg) :
+        if self.curMode != RobotMode.KEYBOARD :
+            return
 
         rospy.loginfo("[KeyPressed!] %s", msg)
 
         vel_msg = Twist()
-        if msg == "I" or msg == "i" : 
+        if msg == String("I") or msg == String("i") : 
             vel_msg.linear.x = 0.5
-        elif msg == "," or msg == "<" : 
+        elif msg == String(",") or msg == String("<") : 
             vel_msg.linear.x = -0.5
-        elif msg == "j" or msg == "J" :
+        elif msg == String("j") or msg == String("J") :
             vel_msg.linear.y = -0.5
-        elif msg == "l" or msg == "L" :
+        elif msg == String("l") or msg == String("L") :
             vel_msg.linear.y = 0.5
+        
+        elif msg == String("u") or msg == String("U") :
+            vel_msg.angular.z = -0.5
+
+        elif msg == String("p") or msg == String("P") :
+            vel_msg.angular.z = 0.5
+        
         else :
             vel_msg.linear.x = 0
             # vel_msg.linear = {0,0,0}
@@ -32,7 +63,7 @@ class CentralNode :
 
     def __init__(self) :
         #self.curMode = Modes.RobotMode.STANDBY
-        self.curMode = "KEYBOARD"
+        self.curMode:RobotMode = RobotMode.IDLE
         self.curSpeed = 0.5
 
         rospy.init_node('central_node', anonymous=True)
@@ -40,8 +71,15 @@ class CentralNode :
         # ** Publisher **
         self.cmd_vel_publisher = rospy.Publisher('/cmd_vel', Twist, queue_size=8)
 
-        # ** Subscriber **
+        # ** Keyboard Subscriber **
         rospy.Subscriber("/keyboard", String, self.keyboardCallback)
+
+        # ** Web Subscriber **
+        rospy.Subscriber("/web/cmd_vel", String, self.webCmdVelCallback)
+        
+        # ** Service Server **
+        rospy.Service("/web/cmd_mode", String, self.webCmdModeCallback)
+
 
 
     def run(self) :
