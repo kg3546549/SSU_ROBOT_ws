@@ -2,7 +2,7 @@
 
 from common.utils import safe_json_parse, create_response, log_info, log_error
 from common.modes import RobotMode, get_mode_by_value, get_mode_by_name, is_auto_mode, is_manual_mode
-from common.constants import TOPICS, FRAME_IDS, DEFAULT_RATES
+from common.constants import TOPICS, SERVICES, FRAME_IDS, DEFAULT_RATES
 
 __version__ = '1.0.0'
 
@@ -22,6 +22,7 @@ __all__ = [
     
     # Constants
     'TOPICS',
+    'SERVICES',
     'FRAME_IDS',
     'DEFAULT_RATES',
 ]

@@ -1,6 +1,11 @@
 #!/usr/bin/env python3
 # -*- coding: utf-8 -*-
 
+import sys
+import os
+
+sys.path.insert(0, '/home/yahboom/SSU_ROBOT_ws/devel/lib/python3/dist-packages')
+
 import rospy
 from geometry_msgs.msg import Twist
 from std_msgs.msg import String
@@ -32,8 +37,6 @@ class ModeManager :
         #self.curMode = Modes.RobotMode.STANDBY
         self.curMode:RobotMode = RobotMode.IDLE
         self.curSpeed = 0.5
-
-
 
         self.mode_pub = rospy.Publisher(TOPICS.MODE_BROAD, String, queue_size=1, latch=True)
         self.mode_service = rospy.Service(SERVICES.MODE, ModeRequest, self.modeService)

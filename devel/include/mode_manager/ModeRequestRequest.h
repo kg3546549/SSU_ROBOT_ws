@@ -87,16 +87,6 @@ namespace message_traits
 
 
 template <class ContainerAllocator>
-struct IsFixedSize< ::mode_manager::ModeRequestRequest_<ContainerAllocator> >
-  : FalseType
-  { };
-
-template <class ContainerAllocator>
-struct IsFixedSize< ::mode_manager::ModeRequestRequest_<ContainerAllocator> const>
-  : FalseType
-  { };
-
-template <class ContainerAllocator>
 struct IsMessage< ::mode_manager::ModeRequestRequest_<ContainerAllocator> >
   : TrueType
   { };
@@ -104,6 +94,16 @@ struct IsMessage< ::mode_manager::ModeRequestRequest_<ContainerAllocator> >
 template <class ContainerAllocator>
 struct IsMessage< ::mode_manager::ModeRequestRequest_<ContainerAllocator> const>
   : TrueType
+  { };
+
+template <class ContainerAllocator>
+struct IsFixedSize< ::mode_manager::ModeRequestRequest_<ContainerAllocator> >
+  : FalseType
+  { };
+
+template <class ContainerAllocator>
+struct IsFixedSize< ::mode_manager::ModeRequestRequest_<ContainerAllocator> const>
+  : FalseType
   { };
 
 template <class ContainerAllocator>
