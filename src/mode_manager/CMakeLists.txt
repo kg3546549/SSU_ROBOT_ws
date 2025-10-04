@@ -12,6 +12,7 @@ find_package(
     rospy
     std_msgs
     message_generation
+    geometry_msgs
 )
 
 ## System dependencies are found with CMake's conventions
