@@ -1,4 +1,13 @@
 <launch>
+  <!-- ROS Bridge WebSocket Server -->
+  <include file="$(find rosbridge_server)/launch/rosbridge_websocket.launch">
+    <arg name="port" value="9090"/>
+  </include>
 
+  <!-- Mode Manager Node -->
+  <node pkg="mode_manager" type="mode_manager.py" name="mode_manager" output="screen"/>
+
+  <!-- Central Control Node -->
+  <node pkg="central_control" type="CentralNode.py" name="central_node" output="screen"/>
 
 </launch>

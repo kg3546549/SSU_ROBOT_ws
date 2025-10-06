@@ -1,0 +1,33 @@
+<launch>
+  <!-- TurtleBot3 Model Selection -->
+  <arg name="model" default="waffle_pi" doc="model type [burger, waffle, waffle_pi]"/>
+  <arg name="x_pos" default="0.0"/>
+  <arg name="y_pos" default="0.0"/>
+  <arg name="z_pos" default="0.0"/>
+  
+  <!-- Set TurtleBot3 Model -->
+  <param name="tb3_model" value="$(arg model)"/>
+  <env name="TURTLEBOT3_MODEL" value="$(arg model)"/>
+
+  <!-- TurtleBot3 Gazebo World -->
+  <include file="$(find turtlebot3_gazebo)/launch/turtlebot3_stage_1.launch">
+    <arg name="model" value="$(arg model)" />
+    <arg name="x_pos" value="$(arg x_pos)"/>
+    <arg name="y_pos" value="$(arg y_pos)"/>
+    <arg name="z_pos" value="$(arg z_pos)"/>
+  </include>
+
+  <!-- ROS Bridge WebSocket Server -->
+  <include file="$(find rosbridge_server)/launch/rosbridge_websocket.launch">
+    <arg name="port" value="9090"/>
+  </include>
+
+  <!-- Mode Manager Node -->
+  <node pkg="mode_manager" type="mode_manager.py" name="mode_manager" output="screen"/>
+
+  <!-- Central Control Node -->
+  <node pkg="central_control" type="CentralNode.py" name="central_node" output="screen"/>
+
+  <!-- Patrol Control Node -->
+  <node pkg="patrol_node" type="patrol_node.py" name="patrol_node" output="screen"/>
+</launch>
