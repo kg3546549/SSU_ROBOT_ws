@@ -190,7 +190,7 @@ class PatrolNode:
             if self.getElapsedTime() > self.obstacle_wait_time:
                 # 2초 경과 후에도 장애물이 있으면 벽으로 판단 -> 좌회전
                 if self.front_distance < self.obstacle_threshold:
-                    self.changeState(PatrolState.stateMachineTURN_LEFT)
+                    self.changeState(PatrolState.TURN_LEFT)
                 else:
                     # 장애물 사라짐 -> 다시 전진
                     self.changeState(PatrolState.FOLLOW_WALL)
