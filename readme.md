@@ -394,7 +394,7 @@ npm start
 
 ```bash
 # 저장소 클론
-git clone <this-repository-url>
+git clone https://github.com/kg3546549/SSU_ROBOT_ws.git>
 cd SSU_ROBOT_ws
 
 # ROS Melodic 설치 (Ubuntu 18.04, 로봇에서 실행)
@@ -496,23 +496,7 @@ cd SSU-Robot-RCS-Frontend && npm start
 # 2. Control Board에서 로봇 선택 및 연결
 # 3. 웹 조이스틱으로 제어
 ```
-
-#### 시나리오 2: 키보드로 직접 제어 (로봇에서)
-
-```bash
-# Terminal 1: ROS System 실행
-roslaunch central_control centralNode.launch
-
-# Terminal 2: 키보드 노드 실행
-rosrun keyboard_control keyboard.py
-
-# Terminal 3: 키보드 모드로 변경
-rosservice call /mode/req "{request_data: '{\"command\": \"set\", \"mode\": 3}'}"
-
-# Terminal 2에서 키보드로 제어 (i, j, k, l, u, o 등)
-```
-
-#### 시나리오 3: 자율 순찰 모드
+#### 시나리오 2: 자율 순찰 모드
 
 ```bash
 # Terminal 1: ROS System 실행
@@ -527,7 +511,7 @@ rosservice call /mode/req "{request_data: '{\"command\": \"set\", \"mode\": 1, \
 # 로봇이 자동으로 벽을 따라 순찰 시작
 ```
 
-#### 시나리오 4: 웹에서 모드 변경 및 제어
+#### 시나리오 3: 웹에서 모드 변경 및 제어
 
 ```bash
 # 1. 전체 시스템 실행 (Backend + Frontend + ROS)
@@ -644,136 +628,6 @@ rosservice call /mode/req "{request_data: '{\"command\": \"set\", \"mode\": 1, \
 ### 6. 스케일링 가능성 (Scalability)
 - 다중 로봇 지원: 각 로봇은 독립적인 ROS 시스템
 - 중앙 집중식 관리: Backend API로 모든 로봇 정보 통합 관리
-
----
-
-## 트러블슈팅
-
-### Frontend 관련
-
-#### 1. Backend API에 연결되지 않음
-```bash
-# Backend 서버 실행 확인
-curl http://localhost:3001/robots
-
-# MongoDB 실행 확인
-mongosh
-# 또는
-docker ps | grep mongodb
-
-# CORS 오류 시 Backend의 main.ts에서 CORS 설정 확인
-```
-
-#### 2. 로봇과 WebSocket 연결 실패
-- Backend에서 로봇으로 연결 시도 확인 (Backend 로그 확인)
-- 로봇의 IP 주소가 MongoDB에 올바르게 등록되었는지 확인
-- 로봇에서 ROS Bridge가 실행 중인지 확인 (`rosnode list | grep rosbridge`)
-- 로봇의 포트 9090이 열려있는지 확인 (`netstat -an | grep 9090`)
-- Backend와 로봇 간 네트워크 연결 확인 (`ping robot_ip`)
-- 방화벽 설정 확인 (Backend → 로봇 방향)
-
-### Backend 관련
-
-#### 3. MongoDB 연결 오류
-```bash
-# MongoDB 서비스 시작
-sudo systemctl start mongodb
-# 또는 Docker
-docker start mongodb
-
-# 연결 테스트
-mongosh mongodb://localhost:27017/robot-management
-```
-
-#### 4. 포트 충돌 (3001 이미 사용 중)
-```bash
-# 포트 사용 확인
-lsof -i :3001
-
-# 프로세스 종료
-kill -9 <PID>
-```
-
-### ROS 관련
-
-#### 5. 모드가 변경되지 않음
-```bash
-# Mode Manager 노드 상태 확인
-rosnode info /mode_manager
-
-# 토픽 수신 확인
-rostopic echo /mode/broad
-
-# 서비스 목록 확인
-rosservice list | grep mode
-```
-
-#### 6. 로봇이 움직이지 않음
-```bash
-# cmd_vel 토픽 발행 확인
-rostopic echo /cmd_vel
-
-# 현재 모드 확인
-rosservice call /mode/req "{request_data: '{\"command\": \"get\"}'}"
-
-# IDLE 모드면 다른 모드로 변경
-rosservice call /mode/req "{request_data: '{\"command\": \"set\", \"mode\": 3}'}"
-
-# 드라이버 노드 확인
-rosnode list | grep driver
-```
-
-#### 7. ROS Bridge가 작동하지 않음
-```bash
-# ROS Bridge 노드 확인
-rosnode list | grep rosbridge
-
-# WebSocket 포트 확인
-netstat -an | grep 9090
-
-# 재시작
-roslaunch rosbridge_server rosbridge_websocket.launch
-```
-
-#### 8. 순찰 중 벽에 부딪힘
-- PID 파라미터 조정 필요 (patrol_node.py의 PIDController 인자)
-- 목표 벽 거리 증가 (wall_distance 파라미터)
-- 장애물 감지 거리 증가 (obstacle_threshold 파라미터)
-
-#### 9. catkin_make 빌드 오류
-```bash
-# 워크스페이스 클린 빌드
-cd ~/SSU_ROBOT_ws
-catkin_make clean
-catkin_make -DPYTHON_EXECUTABLE=/usr/bin/python3
-
-# 의존성 설치
-rosdep install --from-paths src --ignore-src -r -y
-```
-
----
-
-## 향후 개선 계획
-
-### Frontend
-- [ ] 실시간 센서 데이터 시각화 (LiDAR, IMU)
-- [ ] 로봇 상태 모니터링 대시보드 강화
-- [ ] 다중 로봇 동시 제어 UI
-- [ ] 모바일 반응형 디자인
-
-### Backend
-- [ ] WebSocket Gateway 구현 (중앙 집중식 제어)
-- [ ] 인증 및 권한 관리 (JWT)
-- [ ] 로봇 제어 이력 로깅
-- [ ] Swagger API 문서화
-- [ ] Docker Compose 배포 자동화
-
-### ROS System
-- [ ] SLAM 기반 자율 네비게이션 구현 (Gmapping, AMCL)
-- [ ] 장애물 회피 알고리즘 고도화 (DWA, TEB Local Planner)
-- [ ] 다중 로봇 협업 시스템 (Multi-robot coordination)
-- [ ] 카메라 비전 기반 객체 인식
-- [ ] ROS2 포팅 (Humble/Foxy)
 
 ---
 
