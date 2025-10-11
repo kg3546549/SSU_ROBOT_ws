@@ -25,6 +25,9 @@
 - **REST API + WebSocket**: 로봇 정보는 REST API, 제어는 WebSocket으로 분리
 - **실시간 센서 통합**: IMU, LiDAR, Odometry 데이터 처리
 
+### Demo
+![Demo](readme.images/Demo.gif)
+
 ---
 
 ## 시스템 아키텍처
