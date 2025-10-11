@@ -4,7 +4,8 @@
 
 ## 프로젝트 개요
 
-순천향대학교 디지털미디어학과 로봇동아리의 Yahboom Rosmaster X3 Plus 로봇을 제어하기 위한 풀스택 로봇 제어 시스템입니다. 웹 기반 관리 인터페이스(React + NestJS)와 ROS1 기반 실시간 제어 시스템을 결합하여, 다중 로봇 관리 및 원격 제어를 지원합니다.
+숭실대학교 디지털미디어학과 로봇동아리
+ Yahboom Rosmaster X3 Plus 로봇을 제어하기 위한 풀스택 로봇 제어 시스템입니다. 웹 기반 관리 인터페이스(React + NestJS)와 ROS1 기반 실시간 제어 시스템을 결합하여, 다중 로봇 관리 및 원격 제어를 지원합니다.
 
 ### 시스템 구성
 
@@ -45,37 +46,48 @@
 │  └──────────────┴──────────────┴──────────────┴──────────────┘        │
 └──────────┬────────────────────────────────────────────┬────────────────┘
            │ REST API                                    │ WebSocket
-           │ (로봇 메타데이터)                             │ (실시간 제어)
-           ▼                                             │
-┌────────────────────────────────────────────────┐      │
-│      Backend (NestJS + MongoDB)                │      │
-│        http://localhost:3001                   │      │
-│  ┌──────────────────────────────────────────┐ │      │
-│  │  Robot CRUD API                          │ │      │
-│  │  - 로봇 등록/조회/수정/삭제                 │ │      │
-│  │  - 상태 관리 (online/offline/error)       │ │      │
-│  │  - 능력 관리 (movement/sensors/camera)    │ │      │
-│  │  - 필터링 & 검색                           │ │      │
-│  └──────────────────────────────────────────┘ │      │
-└────────────────────────────────────────────────┘      │
-                                                        │
-           ┌────────────────────────────────────────────┘
-           │ WebSocket (ws://robot_ip:9090)
-           │
-           ▼
+           │ (로봇 메타데이터 조회/관리)                   │ (실시간 제어)
+           ▼                                             ▼
 ┌────────────────────────────────────────────────────────────────────────┐
-│                    ROS System (Yahboom Robot)                           │
+│              Backend (NestJS + MongoDB)                                 │
+│                http://localhost:3001                                    │
 │                                                                          │
-│  ┌────────────────────────────────────────────────────────────┐        │
-│  │            ROS Bridge WebSocket Server (:9090)              │        │
-│  └───────────────────────┬────────────────────────────────────┘        │
+│  ┌──────────────────────────────────────────────────────────┐          │
+│  │              Robot CRUD API (REST)                        │          │
+│  │  - 로봇 등록/조회/수정/삭제                                  │          │
+│  │  - 상태 관리 (online/offline/error)                        │          │
+│  │  - 능력 관리 (movement/sensors/camera)                     │          │
+│  │  - 필터링 & 검색                                            │          │
+│  └──────────────────────────────────────────────────────────┘          │
+│                                                                          │
+│  ┌──────────────────────────────────────────────────────────┐          │
+│  │         WebSocket Gateway (1:N 로봇 제어)                 │          │
+│  │  - Frontend ↔ Backend WebSocket 연결                      │          │
+│  │  - Backend ↔ 다중 로봇 WebSocket 관리                      │          │
+│  │  - 명령어 라우팅 (특정 로봇으로 전달)                         │          │
+│  │  - 센서 데이터 중계 (로봇 → Frontend)                       │          │
+│  └─────────────────────┬────────────────────────────────────┘          │
+└────────────────────────┼───────────────────────────────────────────────┘
+                         │
+                         │ WebSocket (1:N)
+         ┌───────────────┼───────────────┬───────────────┐
+         │               │               │               │
+         ▼               ▼               ▼               ▼
+     Robot #1        Robot #2        Robot #3        Robot #N
+  ws://IP1:9090   ws://IP2:9090   ws://IP3:9090   ...
+         │               │               │               │
+┌────────┼───────────────┼───────────────┼───────────────┼────────────────┐
+│        ▼               ▼               ▼               ▼                │
+│  ┌─────────────────────────────────────────────────────────┐           │
+│  │            ROS Bridge WebSocket Server (:9090)           │           │
+│  └───────────────────────┬─────────────────────────────────┘           │
 │                          │                                              │
-│  ┌───────────────────────▼────────────────────────────────────┐        │
-│  │                  Mode Manager Node                          │        │
-│  │  - 모드 상태 관리 (RobotMode Enum)                            │        │
-│  │  - ROS Service (/mode/req) 제공                             │        │
-│  │  - 모드 변경 브로드캐스트 (/mode/broad)                        │        │
-│  └───────────────────────┬────────────────────────────────────┘        │
+│  ┌───────────────────────▼────────────────────────────────┐            │
+│  │                  Mode Manager Node                      │            │
+│  │  - 모드 상태 관리 (RobotMode Enum)                        │            │
+│  │  - ROS Service (/mode/req) 제공                         │            │
+│  │  - 모드 변경 브로드캐스트 (/mode/broad)                    │            │
+│  └───────────────────────┬────────────────────────────────┘            │
 │                          │ Mode Broadcast                               │
 │                          ▼                                              │
 │  ┌──────────────────────────────────────────────────────────┐          │
@@ -108,17 +120,20 @@
 
 #### 1. 로봇 등록 및 관리 (REST API)
 ```
-사용자 → Frontend → Backend API → MongoDB
-        ↓
-    로봇 목록 조회/등록/수정/삭제
+사용자 → Frontend → Backend REST API → MongoDB
+                         ↓
+                 로봇 목록 조회/등록/수정/삭제
+                 (IP, 포트, 능력 등 메타데이터)
 ```
 
-#### 2. 실시간 로봇 제어 (WebSocket)
+#### 2. 실시간 로봇 제어 (WebSocket - 1:N 구조)
 ```
 사용자 (웹 조이스틱 조작)
     ↓
-Frontend (WebSocket 메시지 전송)
-    ↓
+Frontend → Backend WebSocket Gateway
+    ↓ (명령: {robotId: "robot1", cmd: "move", data: {...}})
+Backend → 특정 로봇 WebSocket 연결 선택
+    ↓ ws://robot1_ip:9090
 ROS Bridge (:9090) → /web/cmd_vel 토픽 발행
     ↓
 Central Control Node (모드 확인: WEB_JOY?)
@@ -126,19 +141,31 @@ Central Control Node (모드 확인: WEB_JOY?)
 /cmd_vel 토픽 발행
     ↓
 Yahboom Driver Node → 로봇 모터 제어
+
+센서 데이터 역방향:
+Robot → ROS Bridge → Backend Gateway → Frontend
+(실시간 센서 데이터 스트리밍)
 ```
 
-#### 3. 모드 변경
+#### 3. 모드 변경 (Backend를 통한 제어)
 ```
-Frontend → WebSocket → ROS Service Call (/mode/req)
+Frontend → Backend WebSocket Gateway
+    ↓ (명령: {robotId: "robot1", cmd: "changeMode", mode: 1})
+Backend → 해당 로봇의 WebSocket 연결
+    ↓
+ROS Bridge → ROS Service Call (/mode/req)
     ↓
 Mode Manager → 모드 변경 → /mode/broad 브로드캐스트
     ↓
 Central Control Node → 현재 모드 업데이트
+    ↓
+응답: Backend → Frontend (모드 변경 완료 알림)
 ```
 
-#### 4. 자율 순찰
+#### 4. 자율 순찰 (로봇 자체 동작)
 ```
+Backend → 로봇에 AUTO_PATROL 모드 설정
+    ↓
 Mode Manager (AUTO_PATROL 모드 설정)
     ↓
 Patrol Node → LiDAR 데이터 분석 → /patrol/cmd_vel 발행
@@ -146,6 +173,22 @@ Patrol Node → LiDAR 데이터 분석 → /patrol/cmd_vel 발행
 Central Control Node (AUTO_PATROL 모드에서만 수신)
     ↓
 /cmd_vel 토픽 발행 → 로봇 이동
+    ↓
+센서 데이터 → Backend → Frontend (순찰 상태 모니터링)
+```
+
+#### 5. 다중 로봇 동시 제어
+```
+Frontend Control Board
+    ↓
+Backend WebSocket Gateway (연결 관리)
+    ├─→ Robot #1 (ws://192.168.1.101:9090)
+    ├─→ Robot #2 (ws://192.168.1.102:9090)
+    ├─→ Robot #3 (ws://192.168.1.103:9090)
+    └─→ Robot #N (ws://192.168.1.xxx:9090)
+
+각 로봇에 독립적으로 명령 전송 가능
+Backend가 연결 상태 관리 및 메시지 라우팅
 ```
 
 ---
@@ -425,8 +468,8 @@ roslaunch central_control centralNode.launch
 **5단계: 로봇 제어**
 1. "Control Board" 페이지로 이동
 2. 등록한 로봇 선택
-3. "Connect" 버튼 클릭 (WebSocket 연결)
-4. 웹 조이스틱으로 로봇 제어
+3. "Connect" 버튼 클릭 (Frontend → Backend WebSocket → 로봇 연결)
+4. 웹 조이스틱으로 로봇 제어 (모든 명령은 Backend를 경유)
 
 ---
 
@@ -587,7 +630,8 @@ rosservice call /mode/req "{request_data: '{\"command\": \"set\", \"mode\": 1, \
 ### 4. 느슨한 결합 (Loose Coupling)
 - REST API와 WebSocket으로 시스템 간 통신
 - ROS 토픽과 서비스를 통한 간접 통신
-- Frontend는 Backend를 통해 로봇 목록 조회, WebSocket으로 직접 제어
+- **Frontend는 로봇과 직접 통신하지 않음** - Backend Gateway가 중계
+- Backend가 로봇 연결 상태 관리 및 메시지 라우팅 담당
 
 ### 5. 확장성 (Extensibility)
 - 새로운 로봇 추가: Backend API에 등록만 하면 됨
@@ -618,10 +662,12 @@ docker ps | grep mongodb
 ```
 
 #### 2. 로봇과 WebSocket 연결 실패
-- 로봇의 IP 주소가 올바른지 확인
-- ROS Bridge가 실행 중인지 확인 (`rosnode list | grep rosbridge`)
-- 포트 9090이 열려있는지 확인 (`netstat -an | grep 9090`)
-- 방화벽 설정 확인
+- Backend에서 로봇으로 연결 시도 확인 (Backend 로그 확인)
+- 로봇의 IP 주소가 MongoDB에 올바르게 등록되었는지 확인
+- 로봇에서 ROS Bridge가 실행 중인지 확인 (`rosnode list | grep rosbridge`)
+- 로봇의 포트 9090이 열려있는지 확인 (`netstat -an | grep 9090`)
+- Backend와 로봇 간 네트워크 연결 확인 (`ping robot_ip`)
+- 방화벽 설정 확인 (Backend → 로봇 방향)
 
 ### Backend 관련
 
@@ -741,12 +787,6 @@ rosdep install --from-paths src --ignore-src -r -y
 ## 라이선스
 
 이 프로젝트는 교육 목적으로 개발되었습니다.
-
----
-
-## 개발자
-
-**순천향대학교 디지털미디어학과 로봇동아리**
 
 ---
 
