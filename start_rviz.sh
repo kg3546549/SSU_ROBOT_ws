@@ -1,0 +1,1 @@
+rviz -d ~/software/library_ws/src/ydlidar_ros_driver/launch/lidar.rviz

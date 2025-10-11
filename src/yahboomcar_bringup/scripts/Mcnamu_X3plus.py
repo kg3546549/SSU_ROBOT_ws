@@ -9,6 +9,7 @@ import threading
 import numpy as np
 from math import pi
 from time import sleep
+from serial import SerialException
 from yahboomcar_msgs.msg import *
 from yahboomcar_msgs.srv import *
 from Rosmaster_Lib import Rosmaster
@@ -25,8 +26,13 @@ class yahboomcar_driver:
         # 弧度转角度
         # Radians turn angle
         self.RA2DE = 180 / pi
-        self.car = Rosmaster()
-        self.car.set_car_type(2)
+        self.car = None
+        self.is_connected = False
+        self.reconnect_max_attempts = 10
+        self.reconnect_delay = 2.0
+        self.error_count = 0
+        self.max_consecutive_errors = 5
+
         self.last_update_time = 1
         self.pos = [0, 0, 0, 0]
         self.imu_link = rospy.get_param("~imu_link", "imu_link")
@@ -34,6 +40,9 @@ class yahboomcar_driver:
         self.xlinear_limit = rospy.get_param('~xlinear_speed_limit', 1.0)
         self.ylinear_limit = rospy.get_param('~ylinear_speed_limit', 1.0)
         self.angular_limit = rospy.get_param('~angular_speed_limit', 5.0)
+        self.joints = [90, 145, 0, 45, 90, 30]
+
+        # Publishers and Subscribers
         self.sub_cmd_vel = rospy.Subscriber('cmd_vel', Twist, self.cmd_vel_callback, queue_size=100)
         self.sub_RGBLight = rospy.Subscriber("RGBLight", Int32, self.RGBLightcallback, queue_size=100)
         self.sub_Buzzer = rospy.Subscriber("Buzzer", Bool, self.Buzzercallback, queue_size=100)
@@ -47,84 +56,152 @@ class yahboomcar_driver:
         self.magPublisher = rospy.Publisher("/pub_mag", MagneticField, queue_size=100)
         self.srv_armAngle = rospy.Service("CurrentAngle", RobotArmArray, self.srv_Armcallback)
         self.dyn_server = Server(PIDparamConfig, self.dynamic_reconfigure_callback)
-        self.car.create_receive_threading()
-        self.car.set_car_motion(0, 0, 0)
-        #self.joints = [90, 2.0, 60.0, 40.0, 90]
-        self.joints = [90, 145, 0, 45, 90, 30]
-        self.car.set_uart_servo_angle_array(self.joints, 1000)
-        '''sleep(5)
-        self.joints = [90, 2.0, 60.0, 40.0, 90]
-        self.car.set_uart_servo_angle_array(self.joints, 1000) '''       
+
+        # Initialize connection to robot
+        if not self.connect_to_robot():
+            rospy.logfatal("Failed to connect to robot after %d attempts", self.reconnect_max_attempts)
+            raise Exception("Robot connection failed")
+
+    def connect_to_robot(self):
+        """Connect to the robot with retry logic"""
+        for attempt in range(self.reconnect_max_attempts):
+            try:
+                rospy.loginfo("Attempting to connect to robot (attempt %d/%d)...",
+                             attempt + 1, self.reconnect_max_attempts)
+
+                # Close existing connection if any
+                if self.car is not None:
+                    try:
+                        if hasattr(self.car, 'ser') and self.car.ser is not None:
+                            self.car.ser.close()
+                    except:
+                        pass
+                    self.car = None
+
+                # Create new Rosmaster instance
+                self.car = Rosmaster()
+                self.car.set_car_type(2)
+                self.car.create_receive_threading()
+                self.car.set_car_motion(0, 0, 0)
+                self.car.set_uart_servo_angle_array(self.joints, 1000)
+
+                self.is_connected = True
+                self.error_count = 0
+                rospy.loginfo("Successfully connected to robot!")
+                return True
+
+            except SerialException as e:
+                rospy.logwarn("Serial connection failed (attempt %d): %s", attempt + 1, str(e))
+                self.is_connected = False
+                if attempt < self.reconnect_max_attempts - 1:
+                    rospy.sleep(self.reconnect_delay)
+            except Exception as e:
+                rospy.logerr("Unexpected error during connection (attempt %d): %s", attempt + 1, str(e))
+                self.is_connected = False
+                if attempt < self.reconnect_max_attempts - 1:
+                    rospy.sleep(self.reconnect_delay)
+
+        return False       
 
     def pub_data(self):
         # 发布小车运动速度、陀螺仪数据、电池电压
         ## Publish the speed of the car, gyroscope data, and battery voltage
         while not rospy.is_shutdown():
             sleep(0.05)
-            imu = Imu()
-            twist = Twist()
-            battery = Float32()
-            edition = Float32()
-            mag = MagneticField()
-            edition.data = self.car.get_version()
-            battery.data = self.car.get_battery_voltage()
-            ax, ay, az = self.car.get_accelerometer_data()
-            gx, gy, gz = self.car.get_gyroscope_data()
-            mx, my, mz = self.car.get_magnetometer_data()
-            vx, vy, angular = self.car.get_motion_data()
-            # 发布陀螺仪的数据
-            # Publish gyroscope data
-            imu.header.stamp = rospy.Time.now()
-            imu.header.frame_id = self.imu_link
-            imu.linear_acceleration.x = ax
-            imu.linear_acceleration.y = ay
-            imu.linear_acceleration.z = az
-            imu.angular_velocity.x = gx
-            imu.angular_velocity.y = gy
-            imu.angular_velocity.z = gz
-            mag.header.stamp = rospy.Time.now()
-            mag.header.frame_id = self.imu_link
-            mag.magnetic_field.x = mx
-            mag.magnetic_field.y = my
-            mag.magnetic_field.z = mz
-            # 将小车当前的线速度和角速度发布出去
-            # Publish the current linear vel and angular vel of the car
-            twist.linear.x = vx
-            twist.linear.y = vy
-            twist.angular.z = angular
-            self.velPublisher.publish(twist)
-            # print("ax: %.5f, ay: %.5f, az: %.5f" % (ax, ay, az))
-            # print("gx: %.5f, gy: %.5f, gz: %.5f" % (gx, gy, gz))
-            # print("mx: %.5f, my: %.5f, mz: %.5f" % (mx, my, mz))
-            # rospy.loginfo("battery: {}".format(battery))
-            # rospy.loginfo("vx: {}, vy: {}, angular: {}".format(twist.linear.x, twist.linear.y, twist.angular.z))
-            self.imuPublisher.publish(imu)
-            self.magPublisher.publish(mag)
-            self.volPublisher.publish(battery)
-            self.EdiPublisher.publish(edition)
-            self.joints_states_update()
+
+            if not self.is_connected:
+                rospy.logwarn_throttle(5, "Robot not connected, attempting reconnection...")
+                if self.connect_to_robot():
+                    rospy.loginfo("Reconnected successfully!")
+                else:
+                    continue
+
+            try:
+                imu = Imu()
+                twist = Twist()
+                battery = Float32()
+                edition = Float32()
+                mag = MagneticField()
+                edition.data = self.car.get_version()
+                battery.data = self.car.get_battery_voltage()
+                ax, ay, az = self.car.get_accelerometer_data()
+                gx, gy, gz = self.car.get_gyroscope_data()
+                mx, my, mz = self.car.get_magnetometer_data()
+                vx, vy, angular = self.car.get_motion_data()
+                # 发布陀螺仪的数据
+                # Publish gyroscope data
+                imu.header.stamp = rospy.Time.now()
+                imu.header.frame_id = self.imu_link
+                imu.linear_acceleration.x = ax
+                imu.linear_acceleration.y = ay
+                imu.linear_acceleration.z = az
+                imu.angular_velocity.x = gx
+                imu.angular_velocity.y = gy
+                imu.angular_velocity.z = gz
+                mag.header.stamp = rospy.Time.now()
+                mag.header.frame_id = self.imu_link
+                mag.magnetic_field.x = mx
+                mag.magnetic_field.y = my
+                mag.magnetic_field.z = mz
+                # 将小车当前的线速度和角速度发布出去
+                # Publish the current linear vel and angular vel of the car
+                twist.linear.x = vx
+                twist.linear.y = vy
+                twist.angular.z = angular
+                self.velPublisher.publish(twist)
+                # print("ax: %.5f, ay: %.5f, az: %.5f" % (ax, ay, az))
+                # print("gx: %.5f, gy: %.5f, gz: %.5f" % (gx, gy, gz))
+                # print("mx: %.5f, my: %.5f, mz: %.5f" % (mx, my, mz))
+                # rospy.loginfo("battery: {}".format(battery))
+                # rospy.loginfo("vx: {}, vy: {}, angular: {}".format(twist.linear.x, twist.linear.y, twist.angular.z))
+                self.imuPublisher.publish(imu)
+                self.magPublisher.publish(mag)
+                self.volPublisher.publish(battery)
+                self.EdiPublisher.publish(edition)
+                self.joints_states_update()
+
+                # Reset error count on successful read
+                self.error_count = 0
+
+            except SerialException as e:
+                self.error_count += 1
+                rospy.logerr("Serial communication error: %s (error count: %d)", str(e), self.error_count)
+                self.is_connected = False
+
+                if self.error_count >= self.max_consecutive_errors:
+                    rospy.logerr("Too many consecutive errors, attempting reconnection...")
+                    if not self.connect_to_robot():
+                        rospy.logerr("Reconnection failed, will retry in next cycle")
+
+            except Exception as e:
+                rospy.logerr("Unexpected error in pub_data: %s", str(e))
+                sleep(0.5)  # Prevent rapid error looping
 
     def Armcallback(self, msg):
-        if not isinstance(msg, ArmJoint): return
-        arm_joint = ArmJoint()
-        if len(msg.joints) != 0:
-            arm_joint.joints = self.joints
-            for i in range(2):
-                self.car.set_uart_servo_angle_array(msg.joints, msg.run_time)
-                self.joints = list(msg.joints)
-                self.ArmPubUpdate.publish(arm_joint)
-                sleep(0.01)
-        else:
-            arm_joint.id = msg.id
-            arm_joint.angle = msg.angle
-            for i in range(2):
-                self.car.set_uart_servo_angle(msg.id, msg.angle, msg.run_time)
-                self.joints[msg.id - 1] = msg.angle
-                self.ArmPubUpdate.publish(arm_joint)
-                sleep(0.01)
-        self.joints_states_update()
-        # rospy.loginfo("id: {},angle: {},joints: {},run_time: {}".format(msg.id, msg.angle, msg.joints, msg.run_time))
-        sleep(0.001)
+        if not isinstance(msg, ArmJoint) or not self.is_connected: return
+        try:
+            arm_joint = ArmJoint()
+            if len(msg.joints) != 0:
+                arm_joint.joints = self.joints
+                for i in range(2):
+                    self.car.set_uart_servo_angle_array(msg.joints, msg.run_time)
+                    self.joints = list(msg.joints)
+                    self.ArmPubUpdate.publish(arm_joint)
+                    sleep(0.01)
+            else:
+                arm_joint.id = msg.id
+                arm_joint.angle = msg.angle
+                for i in range(2):
+                    self.car.set_uart_servo_angle(msg.id, msg.angle, msg.run_time)
+                    self.joints[msg.id - 1] = msg.angle
+                    self.ArmPubUpdate.publish(arm_joint)
+                    sleep(0.01)
+            self.joints_states_update()
+            # rospy.loginfo("id: {},angle: {},joints: {},run_time: {}".format(msg.id, msg.angle, msg.joints, msg.run_time))
+            sleep(0.001)
+        except SerialException as e:
+            rospy.logerr("Serial error in Armcallback: %s", str(e))
+            self.is_connected = False
 
     def srv_Armcallback(self, request):
         # 服务端，机械臂当前关节角度
@@ -132,8 +209,16 @@ class yahboomcar_driver:
         if not isinstance(request, RobotArmArrayRequest): return
         # print ("request: ",request)
         response = RobotArmArrayResponse()
-        joints = self.car.get_uart_servo_angle_array()
-        response.angles = joints
+        if self.is_connected:
+            try:
+                joints = self.car.get_uart_servo_angle_array()
+                response.angles = joints
+            except SerialException as e:
+                rospy.logerr("Serial error in srv_Armcallback: %s", str(e))
+                self.is_connected = False
+                response.angles = self.joints
+        else:
+            response.angles = self.joints
         # print ("Arm joints: ", joints)
         return response
 
@@ -143,29 +228,37 @@ class yahboomcar_driver:
         effect=[0, 6]，0：停止灯效，1：流水灯，2：跑马灯，3：呼吸灯，4：渐变灯，5：星光点点，6：电量显示
         speed=[1, 10]，数值越小速度变化越快。
         '''
-        if not isinstance(msg, Int32): return
+        if not isinstance(msg, Int32) or not self.is_connected: return
         # print ("RGBLight: ", msg.data)
-        for i in range(3):
-            self.car.set_colorful_effect(msg.data, 6, parm=1)
-            sleep(0.01)
+        try:
+            for i in range(3):
+                self.car.set_colorful_effect(msg.data, 6, parm=1)
+                sleep(0.01)
+        except SerialException as e:
+            rospy.logerr("Serial error in RGBLightcallback: %s", str(e))
+            self.is_connected = False
 
     def Buzzercallback(self, msg):
         # 蜂鸣器控制  Buzzer control
-        if not isinstance(msg, Bool): return
+        if not isinstance(msg, Bool) or not self.is_connected: return
         # print ("Buzzer: ", msg.data)
-        if msg.data:
-            for i in range(3):
-                self.car.set_beep(1)
-                sleep(0.01)
-        else:
-            for i in range(3):
-                self.car.set_beep(0)
-                sleep(0.01)
+        try:
+            if msg.data:
+                for i in range(3):
+                    self.car.set_beep(1)
+                    sleep(0.01)
+            else:
+                for i in range(3):
+                    self.car.set_beep(0)
+                    sleep(0.01)
+        except SerialException as e:
+            rospy.logerr("Serial error in Buzzercallback: %s", str(e))
+            self.is_connected = False
 
     def cmd_vel_callback(self, msg):
         # 小车运动控制，订阅者回调函数
         # Car motion control, subscriber callback function
-        if not isinstance(msg, Twist): return
+        if not isinstance(msg, Twist) or not self.is_connected: return
         # 下发线速度和角速度
         # Issue linear vel and angular vel
         vx = msg.linear.x
@@ -174,21 +267,41 @@ class yahboomcar_driver:
         # 小车运动控制,vel: ±1, angular: ±5
         # Trolley motion control,vel=[-1, 1], angular=[-5, 5]
         # rospy.loginfo("cmd_velx: {}, cmd_vely: {}, cmd_ang: {}".format(vx, vy, angular))
-        self.car.set_car_motion(vx, vy, angular)
+        try:
+            self.car.set_car_motion(vx, vy, angular)
+        except SerialException as e:
+            rospy.logerr("Serial error in cmd_vel_callback: %s", str(e))
+            self.is_connected = False
 
     def cancel(self):
-        self.car.set_car_motion(0, 0, 0)
-        self.velPublisher.unregister()
-        self.imuPublisher.unregister()
-        self.EdiPublisher.unregister()
-        self.volPublisher.unregister()
-        self.staPublisher.unregister()
-        self.magPublisher.unregister()
-        self.sub_cmd_vel.unregister()
-        self.sub_RGBLight.unregister()
-        self.sub_Buzzer.unregister()
-        # Always stop the robot when shutting down the node
-        rospy.loginfo("Close the robot...")
+        rospy.loginfo("Shutting down robot driver...")
+        try:
+            if self.car is not None and self.is_connected:
+                self.car.set_car_motion(0, 0, 0)
+        except Exception as e:
+            rospy.logwarn("Error stopping robot: %s", str(e))
+
+        try:
+            self.velPublisher.unregister()
+            self.imuPublisher.unregister()
+            self.EdiPublisher.unregister()
+            self.volPublisher.unregister()
+            self.staPublisher.unregister()
+            self.magPublisher.unregister()
+            self.sub_cmd_vel.unregister()
+            self.sub_RGBLight.unregister()
+            self.sub_Buzzer.unregister()
+        except Exception as e:
+            rospy.logwarn("Error unregistering publishers/subscribers: %s", str(e))
+
+        # Close serial connection
+        try:
+            if self.car is not None and hasattr(self.car, 'ser') and self.car.ser is not None:
+                self.car.ser.close()
+        except Exception as e:
+            rospy.logwarn("Error closing serial port: %s", str(e))
+
+        rospy.loginfo("Robot driver shutdown complete")
         rospy.sleep(1)
 
     def joints_states_update(self):
