@@ -6,6 +6,6 @@ moveit_setup_assistant_config:
   SRDF:
     relative_path: config/yahboomcar_X3plus.srdf
   CONFIG:
-    author_name: GUN
+    author_name: GEON
     author_email: kg354654932@gmail.com
-    generated_timestamp: 1760755986
+    generated_timestamp: 1760784065

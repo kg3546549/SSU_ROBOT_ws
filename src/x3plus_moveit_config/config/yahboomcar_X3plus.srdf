@@ -58,8 +58,6 @@
         <joint name="rlink_joint2" value="0" />
         <joint name="rlink_joint3" value="0" />
     </group_state>
-    <!--END EFFECTOR: Purpose: Represent information about an end effector.-->
-    <end_effector name="gripper" parent_link="arm_link5" group="gripper_group" parent_group="arm_group" />
     <!--DISABLE COLLISIONS: By default it is assumed that any link of the robot could potentially come into collision with any other link in the robot. This tag disables collision checking between a specified pair of links. -->
     <disable_collisions link1="arm_link1" link2="arm_link2" reason="Adjacent" />
     <disable_collisions link1="arm_link1" link2="arm_link3" reason="Never" />
@@ -121,6 +119,7 @@
     <disable_collisions link1="llink1" link2="llink2" reason="Adjacent" />
     <disable_collisions link1="llink1" link2="llink3" reason="Never" />
     <disable_collisions link1="llink1" link2="mono_link" reason="Never" />
+    <disable_collisions link1="llink1" link2="rlink1" reason="Always" />
     <disable_collisions link1="llink1" link2="rlink2" reason="Never" />
     <disable_collisions link1="llink1" link2="rlink3" reason="Never" />
     <disable_collisions link1="llink2" link2="llink3" reason="Default" />

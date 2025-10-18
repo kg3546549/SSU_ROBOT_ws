@@ -4,7 +4,7 @@
   
   <!-- <include file="$(find yahboomcar_multi)/launch/library/usb_cam.launch"/> -->
 
-  <include file="$(find yahboomcar_bringup)/launch/yahboomcar.launch"/>
+  <!-- <include file="$(find yahboomcar_bringup)/launch/yahboomcar.launch"/> -->
 
   <!-- ROS Bridge WebSocket Server -->
   <include file="$(find rosbridge_server)/launch/rosbridge_websocket.launch">
