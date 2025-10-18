@@ -1,1 +1,1 @@
-roslaunch central_control centralNodePatrol.launch
+roslaunch central_control centralNode.launch
