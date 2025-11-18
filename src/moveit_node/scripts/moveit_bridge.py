@@ -37,7 +37,7 @@ class MoveItCoordinateToAngle:
         self.target_angle_pub = rospy.Publisher('/TargetAngle', ArmJoint, queue_size=10)
         
         rospy.loginfo("=" * 50)
-        rospy.loginfo("MoveIt Coordinate to Angle Bridge Ready")
+        rospy.loginfo("MoveIt Coordinate to Angle
         rospy.loginfo("ROS Distribution: Melodic")
         rospy.loginfo("Subscribing: /moveit_coordinate [x, y, z, w(yaw)]")
         rospy.loginfo("Publishing: /TargetAngle (ArmJoint)")
