@@ -9,9 +9,10 @@ class TOPICS:
 
     WEB_CMD_VEL = '/web/cmd_vel'
 
-
     CMD_VEL = '/cmd_vel'
     EMERGENCY_STOP = '/emergency_stop'
+
+    FACE_POSE = '/face_pose'
 
 class SERVICES:
     MODE_SRV = '/mode/req'
