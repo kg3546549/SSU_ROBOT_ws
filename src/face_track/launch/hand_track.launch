@@ -1,0 +1,10 @@
+<?xml version="1.0"?>
+<launch>
+  <include file="$(find yahboomcar_bringup)/launch/yahboomcar.launch"/>
+
+  <!-- hand_gesture_node -->
+  <node pkg="face_track" type="hand_gesture_node.py" name="hand_gesture_node" output="screen"/>
+  <node pkg="face_track" type="hand_track_node.py" name="hand_track_node" output="screen"/>
+
+
+</launch>
